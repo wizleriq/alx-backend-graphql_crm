@@ -5,28 +5,28 @@ from .models import Customer, Product, Order
 from django.db import transaction
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from graphene_django.filter import DjangoFilterConnectionField
+from .filters import CustomerFilter, ProductFilter, OrderFilter
 
-# ----------------------------
-# GraphQL Types
-# ----------------------------
+
 class CustomerType(DjangoObjectType):
     class Meta:
         model = Customer
         fields = "__all__"
+        filterset_class = CustomerFilter
 
 class ProductType(DjangoObjectType):
     class Meta:
         model = Product
         fields = "__all__"
+        filteset_class = ProductFilter
 
 class OrderType(DjangoObjectType):
     class Meta:
         model = Order
         fields = "__all__"
+        filterset_class = OrderFilter
 
-# ----------------------------
-# Mutations
-# ----------------------------
 class CreateCustomer(graphene.Mutation):
     class Arguments:
         name = graphene.String(required=True)
@@ -88,6 +88,7 @@ class CreateProduct(graphene.Mutation):
             raise Exception("Price must be positive")
         if stock < 0:
             raise Exception("Stock cannot be negative")
+        
         product = Product(name=name, price=price, stock=stock)
         product.save()
         return CreateProduct(product=product)
@@ -134,3 +135,36 @@ class Mutation(graphene.ObjectType):
 # ----------------------------
 class Query(graphene.ObjectType):
     hello = graphene.String(default_value="Hello, GraphQL!")
+
+
+
+# ----------------------------
+# Filtered Queries
+# ----------------------------
+class Query(graphene.ObjectType):
+    hello = graphene.String(default_value="Hello, GraphQL!")
+
+    all_customers = DjangoFilterConnectionField(CustomerType, order_by=graphene.String())
+    all_products = DjangoFilterConnectionField(ProductType, order_by=graphene.String())
+    all_orders = DjangoFilterConnectionField(OrderType, order_by=graphene.String())
+
+    def resolve_all_customers(root, info, **kwargs):
+        qs = Customer.objects.all()
+        order_by = kwargs.get("order_by")
+        if order_by:
+            qs = qs.order_by(order_by)
+        return qs
+
+    def resolve_all_products(root, info, **kwargs):
+        qs = Product.objects.all()
+        order_by = kwargs.get("order_by")
+        if order_by:
+            qs = qs.order_by(order_by)
+        return qs
+
+    def resolve_all_orders(root, info, **kwargs):
+        qs = Order.objects.all()
+        order_by = kwargs.get("order_by")
+        if order_by:
+            qs = qs.order_by(order_by)
+        return qs
